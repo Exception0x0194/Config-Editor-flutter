@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/cascaded_config.dart';
 
 class ConfigEditorWidget extends StatefulWidget {
@@ -59,7 +62,8 @@ class _ConfigEditorWidgetState extends State<ConfigEditorWidget> {
 
   Widget _buildCommentInput() {
     return ListTile(
-      title: Text('Comment: ${widget.config.comment}'),
+      title: Text('Comment'),
+      subtitle: Text(widget.config.comment),
       onTap: () {
         _editComment();
       },
@@ -68,8 +72,8 @@ class _ConfigEditorWidgetState extends State<ConfigEditorWidget> {
 
   Widget _buildInputFloat() {
     return ListTile(
-      title:
-          Text('Input Float: ${widget.config.inputFloat.toStringAsFixed(2)}'),
+      title: Text('Float'),
+      subtitle: Text(widget.config.inputFloat.toStringAsFixed(2)),
       onTap: () {
         _editInputFloat();
       },
@@ -78,7 +82,8 @@ class _ConfigEditorWidgetState extends State<ConfigEditorWidget> {
 
   Widget _buildInputInt() {
     return ListTile(
-      title: Text('Input Integer: ${widget.config.inputInt}'),
+      title: Text('Integer'),
+      subtitle: Text(widget.config.inputInt.toString()),
       onTap: () {
         _editInputInt();
       },
@@ -199,12 +204,14 @@ class _ConfigEditorWidgetState extends State<ConfigEditorWidget> {
   Widget _buildStrsExpansion() {
     return widget.config.type == 'str'
         ? ExpansionTile(title: const Text('String'), children: [
-            ListTile(
-              subtitle: Text((widget.config.strs.join('\n'))),
-              onTap: () {
-                _editStrList();
-              },
-            )
+            Padding(
+                padding: EdgeInsets.only(left: 20.0),
+                child: ListTile(
+                  subtitle: Text((widget.config.strs.join('\n'))),
+                  onTap: () {
+                    _editStrList();
+                  },
+                ))
           ])
         : const SizedBox.shrink();
   }
@@ -250,12 +257,10 @@ class _ConfigEditorWidgetState extends State<ConfigEditorWidget> {
         ? ExpansionTile(
             title: const Text('Configs'),
             children: [
-              ...widget.config.configs
-                  .map((config) => ConfigEditorWidget(
-                        config: config,
-                        indentLevel: widget.indentLevel + 1,
-                      ))
-                  ,
+              ...widget.config.configs.map((config) => ConfigEditorWidget(
+                    config: config,
+                    indentLevel: widget.indentLevel + 1,
+                  )),
               Row(
                 children: [
                   Expanded(
@@ -263,6 +268,15 @@ class _ConfigEditorWidgetState extends State<ConfigEditorWidget> {
                       leading: const Icon(Icons.add),
                       title: const Text('Add New Config'),
                       onTap: () => _addNewConfig(),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListTile(
+                      leading: const Icon(Icons.download),
+                      title: const Text('Import from clipboard'),
+                      onTap: () async {
+                        await _importConfigFromClipboard();
+                      },
                     ),
                   ),
                   Expanded(
@@ -291,6 +305,27 @@ class _ConfigEditorWidgetState extends State<ConfigEditorWidget> {
         configs: [],
       ));
     });
+  }
+
+  Future<void> _importConfigFromClipboard() async {
+    ClipboardData? data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (data != null && data.text != null) {
+      try {
+        final Map<String, dynamic> jsonConfig = json.decode(data.text!);
+        final newConfig = CascadedConfig.fromJson(jsonConfig);
+        setState(() {
+          widget.config.configs.add(newConfig);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Config imported successfully')));
+      } catch (e) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Failed to import config')));
+      }
+    } else {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('No data in clipboard')));
+    }
   }
 
   void _removeLastConfig() {
